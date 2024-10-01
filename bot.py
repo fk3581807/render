@@ -4,23 +4,19 @@ from bs4 import BeautifulSoup
 import re
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, CallbackQueryHandler, filters, ContextTypes
-from flask import Flask
-from threading import Thread
+from flask import Flask, request
+import logging
 
 # Constant for Shareus API key
 SHAREUS_API_KEY = "N5WHqC160Uh4Mdp2WrRjieFPfEg1"
 # Hardcoded bot token
 BOT_TOKEN = "7463202768:AAH8P_w5VsG_4PPmjAQhRoobKj6rA_uCG7I"
 
-# Flask web server to keep Replit active
-app = Flask('')
+# Flask web server
+app = Flask(__name__)
 
-@app.route('/')
-def home():
-    return "Bot is running!"
-
-def run_flask():
-    app.run(host='0.0.0.0', port=8080)
+# Set up logging
+logging.basicConfig(level=logging.INFO)
 
 def shorten_url(long_url: str) -> str:
     """Shorten a given URL using the Shareus API."""
@@ -31,7 +27,7 @@ def shorten_url(long_url: str) -> str:
         shortened_url = response.text.strip()
         return shortened_url if shortened_url else long_url
     except requests.exceptions.RequestException as e:
-        print(f"Error shortening URL: {e}")
+        logging.error(f"Error shortening URL: {e}")
         return long_url
 
 def clean_title(title: str) -> str:
@@ -60,7 +56,7 @@ def search_site(keyword: str) -> list:
         return result_texts[:7]  # Limit to the first 7 results
     
     except requests.exceptions.RequestException as e:
-        print(f"Error fetching results: {e}")
+        logging.error(f"Error fetching results: {e}")
         return []
 
 def get_download_links(movie_url: str) -> str:
@@ -87,10 +83,6 @@ def get_download_links(movie_url: str) -> str:
     
     except requests.exceptions.RequestException as e:
         return f"Error fetching download links: {e}"
-
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Send a welcome message when the /start command is issued."""
-    await update.message.reply_text("Welcome! Please enter a movie title to search.")
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Handle user messages and store search results."""
@@ -126,19 +118,28 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     
     await query.edit_message_text(f"Download Links for {selected_title}:\n{download_links}")
 
+@app.route('/webhook', methods=['POST'])
+def webhook():
+    """Handle webhook updates from Telegram."""
+    update = Update.de_json(request.get_json(force=True), application.bot)
+    application.process_update(update)
+    return 'ok'
+
 def main() -> None:
     """Start the bot and web server."""
+    global application
     application = ApplicationBuilder().token(BOT_TOKEN).build()
 
-    application.add_handler(CommandHandler("start", start))
+    application.add_handler(CommandHandler("start", lambda update, context: update.message.reply_text("Welcome! Please enter a movie title to search.")))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
     application.add_handler(CallbackQueryHandler(button_callback))  # Handles button clicks
 
-    # Start Flask web server on a separate thread
-    Thread(target=run_flask).start()
+    # Set webhook URL (call this function once to set the webhook)
+    # Replace 'your-domain.com' with your actual domain and path
+    application.bot.set_webhook(url="https://your-domain.com/webhook")
 
-    # Start the bot
-    application.run_polling()
+    # Start Flask web server
+    app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 8080)))
 
 if __name__ == '__main__':
     main()
