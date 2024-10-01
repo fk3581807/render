@@ -10,7 +10,7 @@ from threading import Thread
 # Constant for Shareus API key
 SHAREUS_API_KEY = "N5WHqC160Uh4Mdp2WrRjieFPfEg1"
 # Hardcoded bot token
-BOT_TOKEN = "7828698807:AAEv60Zf4H086_t8kRW-xobj-tvEkfI8LCY"
+BOT_TOKEN = "7463202768:AAH8P_w5VsG_4PPmjAQhRoobKj6rA_uCG7I"
 
 # Flask web server to keep Replit active
 app = Flask('')
